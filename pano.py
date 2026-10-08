@@ -22,8 +22,16 @@ ilanı yeniden asmak (tekrar saldırısı) daha yeni bir ilanı geçemez.
 tam ihtiyaç anında telefon hiçbir şey bulamaz. Bu yüzden aynı adres de
 YENILEME_SAAT'te bir yeniden asılıyor.
 
+⭐ BİLDİRİM (8 Ekim, 82.7). Adres GERÇEKTEN değişince Mehmet'in telefonuna okunur
+bir bildirim de gidiyor — panodan AYRI, gizli adlı ikinci bir konuya
+(veri/bildirim_konu.txt). Ayrı, çünkü pano imzalı JSON taşıyor ve 6 saatte bir
+aynı adresi yeniden asıyor: panoya abone olmak günde 4 anlamsız bildirim demek.
+Yalnız BİLGİ amaçlı (uygulama adresi kendisi buluyor). Mesajda anahtar YOK; bu
+konuyu uygulama okumuyor, o yüzden buraya sahte mesaj asılması anahtarı sızdırmaz.
+
 Kullanım:  python3 pano.py          → gerekiyorsa as (gözcü her turda çağırır)
            python3 pano.py --zorla  → hemen as
+           python3 pano.py --dene   → deneme bildirimi gönder (abonelik sınaması)
 """
 import hashlib
 import hmac
@@ -41,15 +49,25 @@ NTFY = "https://ntfy.sh"
 YENILEME_SAAT = 6
 
 
-def konu():
-    """Panonun gizli adı — ilk çağrıda üretilir, sonra hep aynı."""
-    p = VERI / "pano_konu.txt"
+def _gizli_ad(dosya, onek):
+    """Bir ntfy konusunun gizli adı — ilk çağrıda üretilir, sonra hep aynı."""
+    p = VERI / dosya
     if not p.exists() or not p.read_text().strip():
         # Tahmin edilemez ad: imza bütünlüğü korusa da, ad gizli kalırsa sahte
         # ilanlarla panoyu doldurmak (gürültü) de zorlaşır.
-        p.write_text("otobus-" + secrets.token_hex(12) + "\n")
+        p.write_text(onek + secrets.token_hex(12) + "\n")
         p.chmod(0o600)
     return p.read_text().strip()
+
+
+def konu():
+    """Panonun gizli adı."""
+    return _gizli_ad("pano_konu.txt", "otobus-")
+
+
+def bildirim_konu():
+    """Bildirim konusunun gizli adı — panodan ayrı (birini bilen ötekini bilmesin)."""
+    return _gizli_ad("bildirim_konu.txt", "otobus-bildirim-")
 
 
 def imza(anahtar, adres, zaman):
@@ -89,6 +107,22 @@ def as_(adres):
     return zaman
 
 
+def bildir(adres, baslik="Otobüs takip · yeni adres"):
+    """Telefona okunur bildirim. JSON olarak yayınlanıyor: HTTP başlıkları Türkçe
+    harf taşıyamıyor (Title: Otobüs → latin-1 hatası)."""
+    govde = json.dumps({
+        "topic": bildirim_konu(),
+        "title": baslik,
+        "message": "Tünel yeni adres aldı:\n%s\n\nUygulama bunu kendisi buluyor; "
+                   "bir şey yapman gerekmiyor." % adres,
+        "tags": ["bus"],
+    })
+    istek = urllib.request.Request(NTFY, data=govde.encode(), method="POST",
+                                   headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(istek, timeout=15) as c:
+        if c.status != 200:
+            raise RuntimeError("ntfy %d" % c.status)
+
 
 def gerekiyorsa_as(zorla=False):
     """Adres değiştiyse ya da son ilan eskidiyse (ve adres sağlıklıysa) asar."""
@@ -105,8 +139,21 @@ def gerekiyorsa_as(zorla=False):
     if not saglikli(adres):
         return "adres henüz cevap vermiyor — asılmadı"
     as_(adres)
-    return "asıldı: %s" % adres
+    sonuc = "asıldı: %s" % adres
+    # Bildirim yalnız adres GERÇEKTEN değişince — 6 saatlik tazeleme sessiz kalır.
+    # Bildirim düşerse pano yine de asılmış sayılır (asıl iş o).
+    if son.get("adres") != adres:
+        try:
+            bildir(adres)
+            sonuc += " · bildirildi"
+        except Exception as h:
+            sonuc += " · bildirim gönderilemedi (%s)" % h
+    return sonuc
 
 
 if __name__ == "__main__":
-    print(gerekiyorsa_as(zorla="--zorla" in sys.argv))
+    if "--dene" in sys.argv:
+        bildir(guncel_adres() or "(tünel adresi yok)", baslik="Otobüs takip · deneme")
+        print("deneme bildirimi gönderildi")
+    else:
+        print(gerekiyorsa_as(zorla="--zorla" in sys.argv))
