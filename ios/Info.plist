@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <!-- Sunucu yerel ağda ve http:// üzerinden çalışıyor; iOS varsayılan olarak
+       şifresiz bağlantıyı engeller. Yalnızca yerel ağa izin veriyoruz. -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key><true/>
+  </dict>
+  <key>NSLocationWhenInUseUsageDescription</key>
+  <string>Yakınındaki durakları bulmak için konumun kullanılır.</string>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Otobüs verisi bilgisayarındaki sunucudan yerel ağ üzerinden alınır.</string>
+</dict></plist>

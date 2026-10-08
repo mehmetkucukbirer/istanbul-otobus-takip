@@ -1,0 +1,14 @@
+# Veri: ~10 GB veritabanı + GİZLİLER (anahtar.txt, pano_konu.txt, bildirim_konu.txt).
+# Gizli bilgi sürüm geçmişine GİRMEMELİ — bir kez girerse temizlemek zahmetli.
+veri/
+
+# Tünel programı (38 MB, indirilmiş binary — bizim kodumuz değil)
+arac/
+
+# macOS / Xcode / Python artıkları
+.DS_Store
+xcuserdata/
+DerivedData/
+build/
+__pycache__/
+*.pyc

@@ -1,0 +1,12 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-toolsai.jupyter",
+    "ms-toolsai.datawrangler",
+    "qwtel.sqlite-viewer",
+    "charliermarsh.ruff",
+    "usernamehw.errorlens",
+    "mechatroner.rainbow-csv",
+    "eamodio.gitlens"
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  // ⚠️ veri/ klasöründeki veritabanları 4 GB. VS Code bunları indekslemeye
+  // çalışırsa donar. Arama, dosya ağacı ve dosya izleyicisinden çıkarıyoruz.
+  "files.exclude": {
+    "**/veri/*.db": true,
+    "**/veri/*.db-wal": true,
+    "**/veri/*.db-shm": true,
+    "**/__pycache__": true
+  },
+  "search.exclude": {
+    "**/veri": true,
+    "**/notlar/pano.html": true
+  },
+  "files.watcherExclude": {
+    "**/veri/**": true
+  },
+
+  // Türkçe karakterler ve uzun satırlar için
+  "files.encoding": "utf8",
+  "editor.rulers": [95],
+  "editor.wordWrap": "off",
+
+  // Python
+  "python.defaultInterpreterPath": "/usr/bin/python3",
+  "[python]": { "editor.tabSize": 4, "editor.insertSpaces": true },
+
+  // Markdown — devir dosyası uzun, okunaklı olsun
+  "[markdown]": { "editor.wordWrap": "on", "editor.quickSuggestions": false },
+
+  // Terminal doğrudan proje klasöründe açılsın
+  "terminal.integrated.cwd": "${workspaceFolder}"
+}
