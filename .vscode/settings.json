@@ -25,7 +25,11 @@
   "[python]": { "editor.tabSize": 4, "editor.insertSpaces": true },
 
   // Markdown — devir dosyası uzun, okunaklı olsun
-  "[markdown]": { "editor.wordWrap": "on", "editor.quickSuggestions": false },
+  "[markdown]": { "editor.wordWrap": "on", "editor.quickSuggestions": {
+      "comments": "off",
+      "strings": "off",
+      "other": "off"
+    } },
 
   // Terminal doğrudan proje klasöründe açılsın
   "terminal.integrated.cwd": "${workspaceFolder}"
