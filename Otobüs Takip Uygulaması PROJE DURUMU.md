@@ -5094,7 +5094,12 @@ Bildirim yalnız BİLGİ: uygulama adresi zaten kendisi buluyor (82).
   Sunucu tarafında iki mesaj birebir aynı biçimde (konu, öncelik 3, etiket, 143 karakter).
   Sorun Mac'teki yayında değil; telefona anlık iletimde ya da iOS'un gösteriminde
   (aynı uygulamanın bildirimleri üst üste yığılabiliyor).
-- ⏳ **Kontrollü deneme** (kilit ekranı temiz, telefon kilitli): SONUÇ EKLENECEK.
+- ✅ **Kontrollü deneme (9 Ekim 00:46:40):** kilit ekranı temiz, telefon kilitli, aynı yol
+  (sahte eski adres → `pano.py`). Bildirim **birkaç saniyede kilit ekranına geldi**
+  (Mehmet doğruladı; ntfy'ye 00:46:42'de ulaştı). 18:18'deki kaçış tekrarlanmadı —
+  büyük olasılıkla iOS'un yığması ya da telefonun o anki durumu. Anlık iletim çalışıyor.
+- ✅ **Sessiz tazeleme gerçek koşulda:** gözcü 9 Ekim 00:23'te aynı adresi 6 saatlik
+  tazelemeyle yeniden astı — `gozcu.log` satırında "bildirildi" YOK.
 
 ℹ️ ntfy gönderimden hemen sonra sorgulanırsa mesaj birkaç saniye görünmeyebiliyor
 (ilk sorgu 0 döndü, 2 sn sonra geldi) — "gitmedi" sanma.
@@ -5195,7 +5200,6 @@ Görmek için: VS Code → View → Source Control → Graph.
 (`devicectl` kablo takılıyken de `available (paired)` gösterebilir — sonuca bak).
 
 **🔜 Açık işler:**
-- **Bildirim anlık iletimi** — 18:18 bildirimi kilit ekranına gelmedi; kontrollü deneme (84.2)
 - Veri bulunamayan hatlar durak ekranında HİÇ gösterilmiyor (gündüz %9 durak boş)
   — "bu saatte bilgi yok" soluk satırı önerildi, karar bekliyor.
   Örnek: **402031 KADIKÖY** — 1, 3, 12, 12A, 14C'nin İLK durağı, ekran tamamen boş
