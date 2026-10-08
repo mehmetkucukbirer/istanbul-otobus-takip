@@ -5040,7 +5040,7 @@ ağında değildi (`.local` erişilemez), elindeki tünel adresi ölüydü (530)
 yalnız panodan yeni adresi öğrenerek getirebilirdi. Pano yolu ve 82.5 düzeltmesi
 gerçek koşulda birlikte doğrulandı.
 
-### 82.7. 🔜 Karar bekleyen — bildirim
+### 82.7. ~~🔜 Karar bekleyen~~ — bildirim: ntfy seçildi, kuruldu → Bölüm 84
 Mehmet: *"anahtar değiştiğinde güncel anahtarı bana WhatsApp'tan mesaj olarak
 göndersin"*. Erişim anahtarı HİÇ değişmiyor → "adres" kastedildiği varsayıldı.
 Anahtarı göndermemesi önerildi (tek koruma; üçüncü servisten geçen mesajda durmamalı).
@@ -5051,7 +5051,93 @@ için ağır). Not: uygulama adresi artık kendi bulduğu için mesaj yalnız bi
 
 ---
 
-## 83. 📌 SİSTEMİN ŞU ANKİ HÂLİ (8 Ekim, devir özeti)
+## 83. ~~📌 SİSTEMİN ŞU ANKİ HÂLİ~~ — Bölüm 85'e taşındı (8 Ekim akşamı)
+
+---
+
+## 84. ⭐⭐ BİLDİRİM + GİT — adres değişince telefona haber, değişiklikler görünür (8 Ekim akşamı)
+
+### 84.1. Bildirim — karar: ntfy uygulaması (82.7 kapandı)
+Mehmet ntfy'yi seçti (kurulumsuz, hesap/numara yok). Telefona ntfy uygulaması kuruldu,
+**ayrı bir gizli konuya** abone olundu.
+
+**Neden panodan AYRI konu?** Pano imzalı JSON taşıyor (bildirimde okunmaz) ve aynı
+adresi 6 saatte bir yeniden asıyor (82.3) → panoya abone olmak günde 4 anlamsız
+bildirim demek. Bildirim konusu: `veri/bildirim_konu.txt` (0600,
+`otobus-bildirim-<24 onaltılık>`) — panonun adından bağımsız, birini bilen ötekini bilmiyor.
+
+**`pano.py` değişikliği:**
+- `_gizli_ad()` — konu adı üretimi ortak; `konu()` + yeni `bildirim_konu()`
+- `bildir()` — okunur mesaj: "Tünel yeni adres aldı: <adres> … bir şey yapman
+  gerekmiyor". **JSON olarak** yayınlanıyor: HTTP başlıkları Türkçe harf taşımıyor
+  (`Title: Otobüs` → latin-1 hatası).
+- `gerekiyorsa_as()` — panoya astıktan sonra **yalnız `son.adres != adres` ise** bildiriyor;
+  6 saatlik tazeleme sessiz. Bildirim düşerse pano yine asılmış sayılıyor (asıl iş o):
+  sonuç "asıldı: … · bildirildi" ya da "· bildirim gönderilemedi (…)".
+- `python3 pano.py --dene` — elle deneme bildirimi (abonelik sınaması).
+
+Gözcüye dokunulmadı: her turda `pano.py`'yi yeni süreçle çalıştırıyor, değişiklik
+kendiliğinden devrede. `veri/gozcu.log`'daki 📌 satırında artık "· bildirildi" de görünür.
+
+⚠️ **Mesajda anahtar YOK** ve bu konuyu uygulama OKUMUYOR → konunun adını öğrenen
+biri sahte "yeni adres" assa bile anahtar sızmaz (82.3'teki imza ihtiyacı burada yok).
+Bildirim yalnız BİLGİ: uygulama adresi zaten kendisi buluyor (82).
+
+### 84.2. Doğrulama
+- **18:10 `--dene`** → kilit ekranına geldi ✅ (Mehmet doğruladı).
+- **18:18 değişim sınaması (kesintisiz, tünele dokunmadan):** `pano_son.json`'a sahte
+  eski adres yazıldı → `pano.py` "asıldı · bildirildi"; kayıt gerçek adresle kendiliğinden
+  düzeldi; ikinci çağrı "güncel" (aynı adres için tekrar bildirim YOK) ✅; panodaki yeni
+  ilanın imzası doğru ✅.
+- ⚠️ **AMA 18:18 bildirimi kilit ekranına GELMEDİ.** Mesaj ntfy uygulamasının listesinde
+  var — fakat uygulama açılınca sunucudan kendisi çekiyor, bu anlık iletimi kanıtlamaz.
+  Sunucu tarafında iki mesaj birebir aynı biçimde (konu, öncelik 3, etiket, 143 karakter).
+  Sorun Mac'teki yayında değil; telefona anlık iletimde ya da iOS'un gösteriminde
+  (aynı uygulamanın bildirimleri üst üste yığılabiliyor).
+- ⏳ **Kontrollü deneme** (kilit ekranı temiz, telefon kilitli): SONUÇ EKLENECEK.
+
+ℹ️ ntfy gönderimden hemen sonra sorgulanırsa mesaj birkaç saniye görünmeyebiliyor
+(ilk sorgu 0 döndü, 2 sn sonra geldi) — "gitmedi" sanma.
+
+### 84.3. Git — proje sürüm geçmişine alındı
+Mehmet: *"arka planda ne yapıyorsan bunların hepsini görmemi sağla, yaptığın
+değişiklikleri görmek istiyorum"*. Git yokken bir değişikliğin farkını göstermek için
+eski hâli elle yeniden kurmak gerekti. Artık **yerel git deposu** (`main` dalı) var.
+
+- **Yalnız bu Mac'te** — uzak depo (GitHub) YOK.
+  ⚠️ VS Code'daki mavi **"Publish Branch"** = GitHub'a yükleme. Karar verilmedi, basılmamalı.
+- `.gitignore`: `veri/` (10 GB + anahtar ve konu adları — gizli bilgi geçmişe GİRMEMELİ),
+  `arac/` (indirilmiş binary), `.DS_Store`, `xcuserdata/`, `DerivedData/`, `build/`,
+  `__pycache__/`. Almadan önce tarandı: anahtar ve iki konu adı `veri/` dışında hiçbir
+  dosyada geçmiyor.
+- Kimlik yalnız bu depoya (`git config` yerel): Mehmet + e-posta. 78 dosya, ~3,5 MB.
+
+```
+a12f624  Başlangıç: 8 Ekim hâli (bildirim öncesi)   ← pano.py bilerek ESKİ hâliyle
+448506e  Adres değişince telefona ntfy bildirimi     ← bugünkü fark ayrı görünsün diye
+d05da01  VS Code: markdown önerileri ayarı yeni biçime çevrildi
+```
+
+**Çalışma şekli:** Claude değiştirir → VS Code **Changes**'te görünür → Mehmet bakar →
+kısa notla kayıt. Claude'un fark paneli YALNIZ kaydedilmemiş değişiklikleri gösteriyor,
+geçmiş kayıtları değil ("No changes to show" bundandı).
+
+### 84.4. VS Code
+- **Masaüstü'nden** çalışıyor (`~/Desktop/Visual Studio Code.app`, 1.116); önce kurulum
+  diskinin İÇİNDEN çalışıyordu (hiç kurulmamıştı). Uygulamalar'a taşınması ve diskin
+  çıkarılması önerildi — disk hâlâ takılı (eski açılıştan kalan çökme raporlayıcısı
+  tutuyor olabilir).
+- Git görünümü: **View → Source Control** (⌃⇧G — Control, Command değil) → altta
+  **Graph**. Kayda → dosyaya tıkla → eski/yeni yan yana. Git eklentisi depoyu tanıdı
+  (Git.log 18:33). Proje güvenilir klasörler listesinde.
+- VS Code'da ikinci bir pencere de açık: `Desktop/iett-projesi` — doğru pencerenin
+  başlığında `otobus-takip` yazar.
+- VS Code proje açılınca `.vscode/settings.json`'daki `quickSuggestions`'ı yeni biçime
+  çevirdi (anlam aynı) → `d05da01`.
+
+---
+
+## 85. 📌 SİSTEMİN ŞU ANKİ HÂLİ (8 Ekim akşamı, devir özeti)
 
 **Sunucu Mac'te kalıyor** (Bölüm 81). **Dokuz süreç — hepsi launchd'de:**
 ```
@@ -5062,9 +5148,12 @@ model_dongusu.sh    saat başı · havuz beslemesi + süre modeli
 gps_dongusu.sh      10 dk · karanlık sefer iddiaları
 arayuz_sunucu.py    port 8790 · anahtar · ızgara + önbellek · duran araç filtresi
 cloudflared         internetten erişim tüneli (Bölüm 75)
-gozcu_dongusu.sh    kaydedici + tünel nöbetçisi + ADRES PANOSU (Bölüm 76, 82)
+gozcu_dongusu.sh    kaydedici + tünel nöbetçisi + ADRES PANOSU + bildirim (76, 82, 84)
 sabah_rutini.sh     zamanlanmış (09:00) · sefer arşivi → dizin.db
 ```
+8 Ekim 17:48 kontrol turu: dokuz servis ayakta · istek başarısı %100 · tünel 200,
+anahtarsız 401 / anahtarlı 200 · `.local` 200 · panodaki 3 ilanın imzası doğru ·
+durak isteği 0,16–0,41 sn · disk %21.
 
 **Erişim — telefon bu sırayla dener:**
 ```
@@ -5075,6 +5164,8 @@ sabah_rutini.sh     zamanlanmış (09:00) · sefer arşivi → dizin.db
 5. ADRES PANOSU (ntfy.sh, imzalı) → yeni tünel adresi → bir kez daha
    her yerde X-Anahtar başlığı ZORUNLU (/saglik hariç)
 ```
+**Bildirim:** tünel adresi değişince telefondaki ntfy uygulamasına haber gider (84) —
+yalnız bilgi, uygulama adresi kendisi buluyor.
 
 **Ekran doğruluğu:** gündüz gösterilen canlı araçların %96,5'i gerçekten yol
 alıyor (79). Durak isteği ortanca 0,07 sn, en yavaş 1,8 sn (77, 80).
@@ -5082,16 +5173,21 @@ alıyor (79). Durak isteği ortanca 0,07 sn, en yavaş 1,8 sn (77, 80).
 **Önemli dosya konumları:**
 ```
 veri/kayit.db          9,7 GB · konum · geçiş · havuz
-veri/dizin.db          ~450 MB · durak · hat · tarife · sefer arşivi (büyüyor)
+veri/dizin.db          ~460 MB · durak · hat · tarife · sefer arşivi (büyüyor)
 veri/anahtar.txt       erişim anahtarı (izin 0600)
 veri/pano_konu.txt     adres panosunun gizli adı (izin 0600)
+veri/bildirim_konu.txt bildirim konusunun gizli adı (izin 0600) · telefon buna abone
 veri/pano_son.json     son asılan adres + zaman
 veri/tunel.log         güncel tünel adresi (servis her başlangıçta sıfırlar)
 veri/gozcu.log         gözcünün müdahale kayıtları (📌 pano satırları dahil)
 arac/cloudflared       tünel binary'si (38 MB · v2026.9.3)
-pano.py                adres panosu (imzalı ilan)
+pano.py                adres panosu (imzalı ilan) + bildirim · --dene
+.gitignore             git dışı: veri/ · arac/ · sistem artıkları
 ~/Library/LaunchAgents/otobus.*.plist    dokuz servis tanımı
 ```
+
+**Git:** yerel depo, `main` · her iş sonunda kısa notlu kayıt · uzak depo YOK (84.3).
+Görmek için: VS Code → View → Source Control → Graph.
 
 **Günlük kontrol:** `durum.sh` · `izle.sh` · `veri/gozcu.log`
 
@@ -5099,12 +5195,14 @@ pano.py                adres panosu (imzalı ilan)
 (`devicectl` kablo takılıyken de `available (paired)` gösterebilir — sonuca bak).
 
 **🔜 Açık işler:**
-- **Bildirim (82.7)** — ntfy uygulaması mı, WhatsApp/CallMeBot mu, hiç mi — karar bekliyor
+- **Bildirim anlık iletimi** — 18:18 bildirimi kilit ekranına gelmedi; kontrollü deneme (84.2)
 - Veri bulunamayan hatlar durak ekranında HİÇ gösterilmiyor (gündüz %9 durak boş)
-  — "bu saatte bilgi yok" soluk satırı önerildi, karar bekliyor
+  — "bu saatte bilgi yok" soluk satırı önerildi, karar bekliyor.
+  Örnek: **402031 KADIKÖY** — 1, 3, 12, 12A, 14C'nin İLK durağı, ekran tamamen boş
+  (8 Ekim 17:50); bu hatlarda neden veri olmadığı henüz ölçülmedi
 - Gösterilen hareketli araçların ~%20'si durağa gelmiyor (79.5)
 - Bölüm 71 · şişkin hat ataması (21 hat) — "şimdilik kalsın"
 - Kaydedicinin geri çekilme mantığı (kök sebep; gözcü semptomu çözüyor)
-- `dizin.db` WAL'a alınması · duyuru kilitlenmesi (80.5)
-- `durum.sh` verim eşiği · `parca_sure_ESKI` · peron beklemesi · `hayalet.py` duyuru
+- `dizin.db` WAL'a alınması · duyuru kilitlenmesi (80.5 · son: 7 Ekim 04:05)
+- `durum.sh` verim eşiği (8 Ekim: 0,55) · `parca_sure_ESKI` · peron beklemesi · `hayalet.py` duyuru
 - Dizin eskimesi (130S, 14SB, 92S) · `filo_konum`'da ileri zaman damgaları
