@@ -4,11 +4,11 @@
 > ve bu dosya (nerede kaldık) okunur. Her seans sonunda burası güncellenir.
 >
 > Proje başlangıcı: 26 Ağustos 2026
-> **Son güncelleme: 10 Eylül 2026** — 68 bölüm.
+> **Son güncelleme: 9 Ekim 2026** — 85 bölüm.
 >
 > **Yeni seansa başlarken:** önce `PROMPT_uygulama.md` (ne yapıyoruz), sonra bu
-> dosyada **Bölüm 68** (sistemin şu anki hâli) ve **Bölüm 64** (sıradaki iş)
-> okunmalı. Gerisi başvuru kaynağı — baştan sona okumaya gerek yok.
+> dosyanın **EN SONDAKİ bölümü** okunmalı (şu an Bölüm 85 — sistemin şu anki hâli
+> ve açık işler). Gerisi başvuru kaynağı — baştan sona okumaya gerek yok.
 
 ---
 
