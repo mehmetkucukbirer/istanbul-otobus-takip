@@ -4,10 +4,10 @@
 > ve bu dosya (nerede kaldık) okunur. Her seans sonunda burası güncellenir.
 >
 > Proje başlangıcı: 26 Ağustos 2026
-> **Son güncelleme: 9 Ekim 2026** — 85 bölüm.
+> **Son güncelleme: 19 Ekim 2026** — 87 bölüm.
 >
 > **Yeni seansa başlarken:** önce `PROMPT_uygulama.md` (ne yapıyoruz), sonra bu
-> dosyanın **EN SONDAKİ bölümü** okunmalı (şu an Bölüm 85 — sistemin şu anki hâli
+> dosyanın **EN SONDAKİ bölümü** okunmalı (şu an Bölüm 87 — sistemin şu anki hâli
 > ve açık işler). Gerisi başvuru kaynağı — baştan sona okumaya gerek yok.
 
 ---
@@ -5142,23 +5142,125 @@ geçmiş kayıtları değil ("No changes to show" bundandı).
 
 ---
 
-## 85. 📌 SİSTEMİN ŞU ANKİ HÂLİ (8 Ekim akşamı, devir özeti)
+## 85. ~~📌 SİSTEMİN ŞU ANKİ HÂLİ~~ — Bölüm 87'ye taşındı (19 Ekim)
+
+---
+
+## 86. ⭐⭐⭐ SEFER LİSTESİ ARŞİVDEN + GECE "SON SEFER" (9 Ekim yazıldı · 19 Ekim canlıya alındı)
+
+### 86.1. Sorun
+Mehmet'in ekran görüntüsü (8 Ekim 23:35 · DİŞ HASTANESİ 124051 · Küçükçekmece):
+76O → OTOGAR **"~8 dk"** mavi. Bu, gözlem tahmini: `ortanca aralık − son geçiş`
+= 26 − 18. **Belirli bir sefere bağlı değil** — "26 dk'da bir geçiyor, sonuncusu
+18 dk önceydi" diyor. Oysa son sefer (22:40 kalkışı) 23:17'de geçmişti; o gece
+başka sefer yoktu. Gözlem tahmini "tarife sustuğunda" devreye giriyordu — ama
+tarife gece **sefer bittiği için** de susuyor; motor ikisini ayırt edemiyordu.
+ℹ️ Hat **"76O"** (O harfi, Otogar) — ekranda "760" gibi okunuyor.
+
+### 86.2. Ölçüm 1 — sorun ne kadar büyük?
+**Yöntem — geçmiş ekranı canlandırma:** sunucunun `durakta_ne_var(kod, an)`'ı geçmiş
+bir `an` ile çağrıldı. Yalnız ölçüm sürecinde: gözlem sorgusuna `zaman < an` sınırı
+(yoksa o andan sonraki geçişleri de görür), hava/trafik/iptal kapalı. **Doğrulama:**
+8 Ekim 23:35 ekranı birebir üretildi (76O ~8 · HT20 12 dk K1603 · 98 ~23 dk).
+150 durak × 6-8 Ekim × 6 gece anı = 2.700 ekran:
+```
+gözlem satırı (mavi ~X / turuncu gecikti) seferi BİTMİŞ hattı gösteriyor:
+22:30 %51 · 23:00 %47 · 23:30 %67 · 00:00 %70 · 00:30 %83 · 01:00 %88 · toplam %65
+```
+⚠️⚠️ **Ders — geçiş kayıtları "gerçek" olarak KİRLİ.** İlk kural denemesinde "tarifenin
+son seferinden sonra otobüs geçmiş" görünen vakalar (14F 23:50, 15TK, 14M) gerçek
+sefer değildi: 14F diye kaydedilen araç C-1669 o gün **15C**'de çalışıyordu (Bölüm 71);
+arşiv de son kalkışı tarifeyle aynı (22:00) gösteriyordu. O tablo geçersiz sayıldı;
+doğruluk bundan sonra **arşivden** alındı.
+
+### 86.3. Ölçüm 2 — sefer listesi nereden alınmalı? (Mehmet'in fikri)
+Mehmet: *"23.30'da bir sefer çıktı, 23.45'te duraktan geçti; diğer günlerde o saatte
+kaçta geçtiğine bakıp ona göre bir çıkarım yapmıyoruz"* — ve *"objektif yaklaş,
+onaylamak zorunda değilsin"*.
+"Bu gece son sefer kaçta kalkacak?" · 5-7 Ekim · 4.370 hat-yön-gece · doğru = o gecenin
+kendi arşivi (durum T):
+```
+                          ±10 dk doğru   erken (gerçek otobüse "bitti")   geç (hayaleti sürdürür)
+tarife                       %76,5              %13,9                         %6,8
+arşiv (önceki benzer gün)    %93,8              %4,5                          %1,6
+```
+Arşivin "erken"lerinin **163/195'i aynı sefer GEÇ kalkmış** (liste doğru); gerçekten
+fazladan/kaymış sefer binde 7. Son seferlerin kalkış gecikmesi: ortanca 0 · %95 10 ·
+%99 32 dk. → "geçti" demek için saate değil, **geçişin görülmesine** bakılmalı.
+
+### 86.4. Tasarım ve kod (commit `9bf8cef`)
+- `durakta_ne_var.planli_seferler()` — sefer listesi = aynı gün tipindeki EN SON arşiv
+  gününün `plan_zaman`'ları, bugüne kaydırılmış (+ yarın: gece 03:00'te sabah seferleri).
+  İşletme günü 04:00'te döner (00:30 kalkışı önceki günün). Saatte bir tazelenir
+  (dünün arşivi 09:00'da geliyor). Arşivde hat-yön yoksa None → tarifeye düşülür.
+- Plandan beslenenler: `sonraki_kalkislar` (saatli tahmin satırları) · GPS-kapalı tespiti
+  (gece yarısını aşan pencere artık atlanmıyor) · canlı aracın sefer kimliği.
+- `arayuz_sunucu._son_sefer()` — bugünün son planlı seferi **kalktıysa**: kör tahmin YOK.
+  Duraktan geçiş görüldüyse **"bugünkü son sefer geçti · 23:17"**, görülmediyse
+  **"son sefer 22:40 kalkışlı · henüz görülmedi"** (dakika yok, söz yok). "Ortalama X dk
+  beklersin" özeti de o kartta kaldırılıyor.
+  Geçiş penceresi: beklenen varış **−20 / +45 dk** (sık seferde −aralığın yarısı).
+  ⚠️ +45 sınamada bulundu: 98KM'nin son kalkışı 15:10 ama aynı araçlar (A-1847…) akşam
+  boş dönerken "98KM" kaydediliyor → ekran "son sefer geçti · 23:00" diyordu.
+- Gözlem tahmini ("26 dk'da bir") artık **yalnız arşivde planı olmayan** hatlarda (binde 1).
+- ⚠️ Yeni satır türü (`kaynak: "son_sefer"`) yalnız **`surum=2`** isteyen uygulamaya gidiyor:
+  eski uygulamanın modelinde `dakika` zorunlu ve 0 → "şimdi" yazardı.
+
+### 86.5. Sınama — eski ve yeni kod aynı anlarda (doğruluk arşivden)
+150 durak · 6-7 Ekim · gece 6 an + gündüz 3 an. "Otobüs geldi" = arşivde o andan sonra
+kalkan tamamlanmış sefer VEYA o gün arşivde o hatta çalışmış bir aracın geçişi.
+```
+                                          eski kod   yeni kod
+gece hayalet kart (geliyor/gecikti, gelmedi)   945        275
+  … kör tahminden gelenleri                    670         11
+"son sefer geçti" kartı                          —      3.990  (%97 doğru)
+"bitti" deyip GERÇEK seferin geldiği             —          2
+gündüz hayalet kart                             36         31
+```
+- Kalan gece hayaletlerinin **236/275'i canlı araç satırı** (eski kodda da 235) — durağa
+  gelmeyen / garaja dönen araç; bu değişiklikle ilgisiz (79.5).
+- "Bitti" deyip araç geçen 143 kartın **141'inde arşivde o saatten sonra sefer yok** —
+  geçen araç seferde değil (boş dönüş). Yolcu için "bitti" doğru.
+- **Bedel:** gündüz 113 kartta gözlem tahmini kalktı; onların yalnız %16'sı ±10 dk
+  isabetliydi. Tasarım korunuyor.
+- Gece ekran başına "son sefer" kartı ortanca 2, en çok 34 (büyük aktarma durakları) →
+  uygulamada tek kartta toplama önerildi: *"Bugünkü seferi bitenler: 76O · 89 · 98KM…"*.
+
+### 86.6. Canlıya alma (19 Ekim 01:41)
+Ön deneme: yeni kod gerçek anla 3 durakta (sürüm 1 ve 2) hatasız. Sonra
+`launchctl kickstart -k gui/$UID/otobus.arayuz` → 4 sn'de ayakta, tünel 200.
+Diş Hastanesi 01:41: eski uygulama 0 kart (hayalet yok) · sürüm 2: "76O · bugünkü son
+sefer geçti · 23:32", "36AS · son sefer 21:50 kalkışlı · henüz görülmedi".
+⚠️ **Telefon uygulaması (Swift) henüz güncellenmedi** — "son sefer" satırını yalnız
+`surum=2` isteyen sürüm görecek; mevcut uygulama bitmiş hatları hiç göstermiyor.
+
+### 86.7. Bilinen sınırlar
+- Gün tipi takvimden: bayram günü "P" gibi işleyen plan yakalanmaz.
+- Plan güzergâh varyantlarını ayırmıyor (tarife de ayırmıyordu): durağa uğramayan kısa tur
+  "son sefer" sayılırsa kart "henüz görülmedi"de kalabilir.
+- GPS'i kapalı son sefer duraktan görünmeden geçerse kart gece boyu "henüz görülmedi".
+- Ölçüm betikleri (geçmiş ekran, karşılaştırma, doğruluk) projede değil, geçici klasörde.
+
+---
+
+## 87. 📌 SİSTEMİN ŞU ANKİ HÂLİ (19 Ekim, devir özeti)
 
 **Sunucu Mac'te kalıyor** (Bölüm 81). **Dokuz süreç — hepsi launchd'de:**
 ```
-kaydedici.py        dakikada bir · 6.921 araç · kota 95/saat
+kaydedici.py        dakikada bir · ~6.925 araç · kota 95/saat
 gecis_dongusu.sh    10 dk · ham konumdan geçiş çıkarımı
 duyuru_dongusu.sh   10 dk · sefer iptalleri
 model_dongusu.sh    saat başı · havuz beslemesi + süre modeli
 gps_dongusu.sh      10 dk · karanlık sefer iddiaları
-arayuz_sunucu.py    port 8790 · anahtar · ızgara + önbellek · duran araç filtresi
+arayuz_sunucu.py    port 8790 · anahtar · plan (arşiv) · son sefer · duran araç filtresi
 cloudflared         internetten erişim tüneli (Bölüm 75)
 gozcu_dongusu.sh    kaydedici + tünel nöbetçisi + ADRES PANOSU + bildirim (76, 82, 84)
-sabah_rutini.sh     zamanlanmış (09:00) · sefer arşivi → dizin.db
+sabah_rutini.sh     zamanlanmış (09:00) · sefer arşivi → dizin.db (plan da buradan)
 ```
-8 Ekim 17:48 kontrol turu: dokuz servis ayakta · istek başarısı %100 · tünel 200,
-anahtarsız 401 / anahtarlı 200 · `.local` 200 · panodaki 3 ilanın imzası doğru ·
-durak isteği 0,16–0,41 sn · disk %21.
+**19 Ekim 01:40 kontrol turu:** dokuz servis ayakta · istek başarısı %100 · tünel 200,
+anahtarsız 401 / anahtarlı 200 · `.local` 200 · arşiv 17 Ekim'e kadar · disk %23 ·
+verim 0,62. 9-19 Ekim arası tek zor gün **16 Ekim**: kaydedici 38 dk takıldı, tünel
+7 kez koptu — gözcü hepsini toparladı. ⚠️ Kontrol sırasında **Mac PİLDEYDİ (%64)**.
 
 **Erişim — telefon bu sırayla dener:**
 ```
@@ -5169,16 +5271,16 @@ durak isteği 0,16–0,41 sn · disk %21.
 5. ADRES PANOSU (ntfy.sh, imzalı) → yeni tünel adresi → bir kez daha
    her yerde X-Anahtar başlığı ZORUNLU (/saglik hariç)
 ```
-**Bildirim:** tünel adresi değişince telefondaki ntfy uygulamasına haber gider (84) —
-yalnız bilgi, uygulama adresi kendisi buluyor.
+**Bildirim:** tünel adresi değişince telefondaki ntfy uygulamasına haber gider (84).
 
-**Ekran doğruluğu:** gündüz gösterilen canlı araçların %96,5'i gerçekten yol
-alıyor (79). Durak isteği ortanca 0,07 sn, en yavaş 1,8 sn (77, 80).
+**Ekran doğruluğu:** gündüz gösterilen canlı araçların %96,5'i gerçekten yol alıyor
+(79). Gece kör tahmin kaldırıldı: hayalet kart 945 → 275 (86). Durak isteği ortanca
+0,07 sn, en yavaş 1,8 sn (77, 80).
 
 **Önemli dosya konumları:**
 ```
-veri/kayit.db          9,7 GB · konum · geçiş · havuz
-veri/dizin.db          ~460 MB · durak · hat · tarife · sefer arşivi (büyüyor)
+veri/kayit.db          10,8 GB (+ WAL) · konum · geçiş · havuz
+veri/dizin.db          ~550 MB · durak · hat · tarife · sefer arşivi (büyüyor) · PLAN kaynağı
 veri/anahtar.txt       erişim anahtarı (izin 0600)
 veri/pano_konu.txt     adres panosunun gizli adı (izin 0600)
 veri/bildirim_konu.txt bildirim konusunun gizli adı (izin 0600) · telefon buna abone
@@ -5191,22 +5293,27 @@ pano.py                adres panosu (imzalı ilan) + bildirim · --dene
 ~/Library/LaunchAgents/otobus.*.plist    dokuz servis tanımı
 ```
 
-**Git:** yerel depo, `main` · her iş sonunda kısa notlu kayıt · uzak depo YOK (84.3).
-Görmek için: VS Code → View → Source Control → Graph.
+**Git:** yerel depo, `main` · her iş sonunda kısa notlu kayıt (84.3). Görmek için:
+VS Code → View → Source Control → Graph. **GitHub'a yükleme (19 Ekim) sürüyor:** herkese
+açık; staj projesi (`~/Desktop/iett-projesi`) için karar "kod evet, veri hayır".
 
 **Günlük kontrol:** `durum.sh` · `izle.sh` · `veri/gozcu.log`
 
-**⚠️ Mac'in uyanık kalması ŞART** · **telefona yükleme kablo istiyor**
+**⚠️ Mac'in uyanık ve FİŞTE kalması ŞART** · **telefona yükleme kablo istiyor**
 (`devicectl` kablo takılıyken de `available (paired)` gösterebilir — sonuca bak).
 
 **🔜 Açık işler:**
-- Veri bulunamayan hatlar durak ekranında HİÇ gösterilmiyor (gündüz %9 durak boş)
-  — "bu saatte bilgi yok" soluk satırı önerildi, karar bekliyor.
-  Örnek: **402031 KADIKÖY** — 1, 3, 12, 12A, 14C'nin İLK durağı, ekran tamamen boş
-  (8 Ekim 17:50); bu hatlarda neden veri olmadığı henüz ölçülmedi
-- Gösterilen hareketli araçların ~%20'si durağa gelmiyor (79.5)
-- Bölüm 71 · şişkin hat ataması (21 hat) — "şimdilik kalsın"
+- **Uygulama (Swift): "son sefer" satırı + `surum=2` + kabloyla yükleme** — çok kartta
+  tek kartta toplama mı, kart kart mı: karar bekliyor (86.5)
+- Veri bulunamayan hatlar durak ekranında HİÇ gösterilmiyor — "bu saatte bilgi yok" satırı
+  önerildi. Örnek: **402031 KADIKÖY** (1, 3, 12, 12A, 14C'nin ilk durağı) — 19 Ekim'de de
+  sürüm 1 ve 2'de 0 kart; neden veri olmadığı henüz ölçülmedi
+- Gösterilen hareketli araçların ~%20'si durağa gelmiyor (79.5) — gece hayaletlerinin de
+  236/275'i bu (86.5)
+- `durum.sh` 2 dakikadan uzun sürüyor (19 Ekim; 9 Ekim'de saniyeler) — büyük ihtimalle
+  30,8 M satırlık konum tablosunun tam sayımı
+- Bölüm 71 · şişkin hat ataması (21 hat) — "şimdilik kalsın" (86.2'de yine görüldü)
 - Kaydedicinin geri çekilme mantığı (kök sebep; gözcü semptomu çözüyor)
-- `dizin.db` WAL'a alınması · duyuru kilitlenmesi (80.5 · son: 7 Ekim 04:05)
-- `durum.sh` verim eşiği (8 Ekim: 0,55) · `parca_sure_ESKI` · peron beklemesi · `hayalet.py` duyuru
+- `dizin.db` WAL'a alınması · duyuru kilitlenmesi (80.5)
+- `durum.sh` verim eşiği (19 Ekim: 0,62) · `parca_sure_ESKI` · peron beklemesi · `hayalet.py` duyuru
 - Dizin eskimesi (130S, 14SB, 92S) · `filo_konum`'da ileri zaman damgaları
