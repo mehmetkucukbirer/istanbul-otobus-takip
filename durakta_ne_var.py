@@ -115,6 +115,91 @@ def gun_tipi(t):
     return "C" if t.weekday() == 5 else ("P" if t.weekday() == 6 else "I")
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ⭐⭐ SEFER PLANI — tarife yerine ARŞİV (9 Ekim · Bölüm 86, Mehmet'in fikri)
+#
+#   *"23.30'da bir sefer çıktı, 23.45'te duraktan geçti; diğer günlerde o saatte
+#     kaçta geçtiğine bakıp ona göre bir çıkarım yapmıyoruz"*
+#
+#   Tarife gece eksik ya da fazla sefer listeliyor. ÖLÇÜLDÜ (5-7 Ekim · 4.370
+#   hat-yön-gece · "bu gece son sefer kaçta kalkacak?" · doğru cevap o gecenin
+#   kendi arşivi):
+#       tarife                      ±10 dk doğru %76,5 · erken %13,9 · geç %6,8
+#       arşiv (önceki benzer gün)   ±10 dk doğru %93,8 · erken %4,5  · geç %1,6
+#   Arşivin "erken"lerinin 163/195'i aynı sefer GEÇ kalkmış (liste doğru);
+#   gerçekten fazladan ya da kaymış sefer binde 7.
+#
+#   Plan = aynı gün tipindeki EN SON arşiv gününün plan_zaman'ları, bugüne
+#   kaydırılmış. İşletme günü 04:00'te döner: 00:30 kalkışı önceki günün seferidir
+#   (arşiv de öyle yazıyor). Arşivde o hat-yön yoksa None → çağıran tarifeye düşer.
+#   ⚠️ Bilinen sınırlar: gün tipi takvimden geliyor (bayram günü "P" gibi işleyen
+#      plan yakalanmaz) · plan güzergâh varyantlarını ayırmıyor (tarife de
+#      ayırmıyordu): durağa uğramayan kısa tur da listede.
+# ─────────────────────────────────────────────────────────────────────────────
+ISLETME_GUNU_DONUS = 4       # saat — bundan önceki kalkışlar önceki işletme gününe ait
+PLAN_TAZELEME_SN = 3600      # dünün arşivi sabah 09:00'da geliyor; plan saatte bir tazelenir
+_PLAN = {}                   # işletme günü → (hesap zamanı, referans tarih, {(hat, yon): [(dk, güzergâh)]})
+_plan_kilit = threading.Lock()
+
+
+def isletme_gunu(an):
+    return (an - timedelta(hours=ISLETME_GUNU_DONUS)).date()
+
+
+def _gunluk_plan(dz, gun):
+    """O işletme gününün planı (önceki benzer günün arşivi) — önbellekli."""
+    simdi = datetime.now().timestamp()
+    with _plan_kilit:
+        kayit = _PLAN.get(gun)
+        if kayit and simdi - kayit[0] < PLAN_TAZELEME_SN:
+            return kayit[1], kayit[2]
+    gt = gun_tipi(datetime(gun.year, gun.month, gun.day, 12))
+    ref = dz.execute("SELECT MAX(tarih) FROM sefer WHERE gun_tipi=? AND tarih < ?",
+                     (gt, gun.strftime("%Y%m%d"))).fetchone()[0]
+    harita = {}
+    if ref:
+        bas = datetime.strptime(ref, "%Y%m%d")
+        for h, y, pz, gz in dz.execute(
+                "SELECT hat_kodu, yon, plan_zaman, guzergah FROM sefer"
+                " WHERE tarih=? AND plan_zaman IS NOT NULL", (ref,)):
+            try:
+                dk = int((datetime.strptime(pz[:16], "%Y-%m-%d %H:%M") - bas).total_seconds() // 60)
+            except ValueError:
+                continue
+            harita.setdefault((h, y), {}).setdefault(dk, gz)
+        harita = {a: sorted(v.items()) for a, v in harita.items()}
+    with _plan_kilit:
+        _PLAN[gun] = (simdi, ref, harita)
+        for eski in sorted(_PLAN)[:-4]:      # son birkaç işletme günü yeter
+            del _PLAN[eski]
+    return ref, harita
+
+
+def planli_seferler(dz, hat, yon, an):
+    """Bugünün ve yarının işletme günü için planlı kalkışlar: [(kalkış, güzergâh)].
+    Yarın da dahil: gece 03:00'te sabahın ilk seferleri de görünebilsin.
+    Arşivde bu hat-yön hiç yoksa None."""
+    bugun = isletme_gunu(an)
+    sonuc, bulundu = [], False
+    for gun in (bugun, bugun + timedelta(days=1)):
+        liste = _gunluk_plan(dz, gun)[1].get((hat, yon))
+        if liste is None:
+            continue
+        bulundu = True
+        g0 = datetime(gun.year, gun.month, gun.day)
+        sonuc.extend((g0 + timedelta(minutes=dk), gz) for dk, gz in liste)
+    return sonuc if bulundu else None
+
+
+def son_planli_kalkis(dz, hat, yon, an):
+    """Bugünün işletme günündeki SON planlı kalkış · plan yoksa None."""
+    gun = isletme_gunu(an)
+    liste = _gunluk_plan(dz, gun)[1].get((hat, yon))
+    if not liste:
+        return None
+    return datetime(gun.year, gun.month, gun.day) + timedelta(minutes=liste[-1][0])
+
+
 def duraktan_gecen_hatlar(db, durak_kodu):
     return db.execute("""
         SELECT hd.hat_kodu, hd.yon, hd.yon_adi, hd.sira, h.hat_adi,
@@ -125,7 +210,14 @@ def duraktan_gecen_hatlar(db, durak_kodu):
 
 
 def sonraki_kalkislar(db, hat, yon, gt, andan_itibaren, adet=3):
-    """Tarifeden, verilen saatten sonraki ilk kalkışlar."""
+    """Verilen saatten sonraki ilk kalkışlar: [(saat, güzergâh)].
+    Önce PLAN (arşiv · gerekçe planli_seferler'de), arşivde yoksa tarife.
+    ⭐ Plan gece yarısını da aşıyor: 23:40'ta 00:10 kalkışı görünür (tarifede
+       `saat >= '23:40'` karşılaştırması onu kaçırıyordu)."""
+    plan = planli_seferler(db, hat, yon, andan_itibaren)
+    if plan is not None:
+        esik = andan_itibaren.replace(second=0, microsecond=0)
+        return [(k.strftime("%H:%M"), g) for k, g in plan if k >= esik][:adet]
     return db.execute("""
         SELECT saat, guzergah FROM tarife
         WHERE hat_kodu=? AND yon=? AND gun_tipi=? AND saat >= ?
@@ -245,28 +337,35 @@ def yoldaki_gorunmeyenler(dz, hat, yon, hedef_sira, an, gt, gorunen_varislar, ip
     if not r:
         return []
     yol_dk = r[0]
-    bas = (an - timedelta(minutes=yol_dk)).strftime("%H:%M")
-    simdi = an.strftime("%H:%M")
-    if bas >= simdi:
-        return []                       # gece yarısını aşıyor — karışmasın, atla
-    kalkislar = [x[0] for x in dz.execute(
-        "SELECT saat FROM tarife WHERE hat_kodu=? AND yon=? AND gun_tipi=?"
-        " AND saat >= ? AND saat < ? ORDER BY saat", (hat, yon, gt, bas, simdi))]
-    if len(kalkislar) < 2:
+    # Kalkışlar (saat, tarih-saat) çifti olarak: plan tarih taşıdığı için gece
+    # yarısını aşan pencere de doğru (9 Ekim · Bölüm 86). Tarifeye düşülürse eski
+    # davranış: saat dizgisi tarih taşımıyor, gece yarısını aşan pencere atlanıyor.
+    plan = planli_seferler(dz, hat, yon, an)
+    if plan is not None:
+        bas_an = an - timedelta(minutes=yol_dk)
+        adaylar = [(k.strftime("%H:%M"), k) for k, _ in plan if bas_an <= k < an]
+    else:
+        bas = (an - timedelta(minutes=yol_dk)).strftime("%H:%M")
+        simdi = an.strftime("%H:%M")
+        if bas >= simdi:
+            return []                   # gece yarısını aşıyor — karışmasın, atla
+        adaylar = [(x[0][:5], an.replace(hour=int(x[0][:2]) % 24, minute=int(x[0][3:5]),
+                                          second=0, microsecond=0))
+                   for x in dz.execute(
+                       "SELECT saat FROM tarife WHERE hat_kodu=? AND yon=? AND gun_tipi=?"
+                       " AND saat >= ? AND saat < ? ORDER BY saat", (hat, yon, gt, bas, simdi))]
+    if len(adaylar) < 2:
         aralik = None
     else:
-        dk = lambda s: int(s[:2]) * 60 + int(s[3:5])
-        farklar = [dk(b) - dk(a) for a, b in zip(kalkislar, kalkislar[1:])]
+        farklar = [(b - a).total_seconds() / 60 for (_, a), (_, b) in zip(adaylar, adaylar[1:])]
         aralik = statistics.median(farklar)
         if aralik < GPS_EN_AZ_ARALIK_DK:
             return []                   # sık seferli hat — ayırt edilemez
 
     yolda = []
-    for s in kalkislar:
+    for s, kalkis in adaylar:
         if iptaller and (hat, yon, s[:5]) in iptaller.get("kesin", {}):
             continue                    # iptal duyurulmuş, gelmiyor
-        kalkis = an.replace(hour=int(s[:2]) % 24, minute=int(s[3:5]),
-                            second=0, microsecond=0)
         rr = sure_modeli.varis_suresi(_kayit_db(), hat, yon, 1, hedef_sira, kalkis)
         if not rr:
             continue

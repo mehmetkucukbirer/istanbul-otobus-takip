@@ -939,7 +939,13 @@ def _kalkis_duragi(d, hat, yon):
     return _KALKIS_DURAK_ONBELLEK[anahtar]
 
 
-def _tarife_dakikalari(d, hat, yon, gt):
+def _tarife_dakikalari(d, hat, yon, gt, an=None):
+    """Kalkış saatleri (günün dakikası). `an` verilirse önce PLAN (arşiv ·
+    gerekçe DNV.planli_seferler'de), arşivde yoksa tarife."""
+    if an is not None:
+        plan = DNV.planli_seferler(d, hat, yon, an)
+        if plan is not None:
+            return sorted({k.hour * 60 + k.minute for k, _ in plan})
     anahtar = (hat, yon, gt)
     if anahtar not in _TARIFE_ONBELLEK:
         try:
@@ -966,7 +972,7 @@ def _hesapla_kalkis(d, hat, yon, an, gt, sira, varis_dk):
     """
     if sira is None or varis_dk is None:
         return None
-    tarife = _tarife_dakikalari(d, hat, yon, gt)
+    tarife = _tarife_dakikalari(d, hat, yon, gt, an)
     if not tarife:
         return None
     varis = an + timedelta(minutes=varis_dk)
@@ -1049,7 +1055,7 @@ def sefer_kimligi(d, k, hat, yon, kapino, an, gt, sira=None, varis_dk=None):
             # şehir içi bir hat için gerçekçi değil.
             return _hesapla_kalkis(d, hat, yon, an, gt, sira, varis_dk)
 
-    tarife = _tarife_dakikalari(d, hat, yon, gt)
+    tarife = _tarife_dakikalari(d, hat, yon, gt, an)
     if tarife:
         en_yakin = min(tarife, key=lambda x: abs(x - od))
         if abs(en_yakin - od) <= SEFER_ESLESME_DK:
@@ -1131,14 +1137,76 @@ def _ayni_hat_kartlarini_birlestir(hatlar):
 
 
 def _sira(v):
-    """Sıralama anahtarı: önce gerçekten gelen otobüsler, sonra gecikmiş uyarılar.
+    """Sıralama anahtarı: önce gerçekten gelen otobüsler, sonra gecikmiş uyarılar,
+    en sonda seferi bitmiş hatlar.
     ⚠️ `dakika` boş olabilir (iptal satırında varış yok) — sona atılır, çökmez."""
-    return (1 if v.get("gecikmis") else 0,
+    return (2 if v.get("kaynak") == "son_sefer" else (1 if v.get("gecikmis") else 0),
             v["dakika"] if v.get("dakika") is not None else 10 ** 6)
 
 
-def durakta_ne_var(durak_kodu, an=None):
-    """ASIL CEVAP. Üç kademe: canlı araç · gözlem · tarife."""
+#: ⭐⭐ SON SEFER (9 Ekim · Bölüm 86). Bugünün son planlı seferi kalktıysa ekran
+#: artık "~X dk" diye KÖR TAHMİN yapmıyor. ÖLÇÜLDÜ (6-8 Ekim geceleri · 150 durak ·
+#: 2.700 ekran geçmişte canlandırıldı): gece gösterilen gözlem satırlarının %65'i
+#: seferi çoktan bitmiş bir hattı gösteriyordu (00:30'da %83). Mehmet'in gördüğü:
+#: 8 Ekim 23:35, 76O "~8 dk" — son sefer 23:17'de geçmişti, o gece başka yoktu.
+#:
+#: Son seferin bu duraktan GEÇTİĞİ, beklenen varışından en çok bu kadar önce
+#: görülen bir geçişle kabul edilir. Daha erken bir geçiş bir önceki sefer ya da
+#: yanlış hatta atanmış bir araç olabilir (Bölüm 71 · 8 Ekim'de 15C'nin aracı
+#: C-1669, 14F diye kaydedilmişti). Sık seferli hatta pencere iki kalkış
+#: arasının yarısına daralır: önceki seferin geçişi son sefer sanılmasın.
+SON_SEFER_ERKEN_DK = 20
+#: Pencerenin GEÇ ucu: beklenen varıştan bu kadar SONRAKİ geçiş son sefer sayılmaz.
+#: ⚠️ NEDEN (9 Ekim, sınamada bulundu): 98KM'nin son kalkışı 15:10, ama aynı
+#:   araçlar (A-1847, A-1845…) akşam başka işte/garaja giderken de "98KM" diye
+#:   kaydediliyor → ekran "son sefer geçti · 23:00" diyordu. ÖLÇÜLDÜ (5-7 Ekim ·
+#:   4.351 son sefer): kalkış gecikmesi ortanca 0 · %95 10 · %99 32 dk. 32 + yolculuk
+#:   süresi payı → 45.
+SON_SEFER_GEC_DK = 45
+
+
+def _son_sefer(dz, hat, yon, durak_kodu, sira, an):
+    """Bugünün son planlı seferi KALKTIYSA onun satırı; kalkmadıysa ya da plan yoksa None.
+
+    ⚠️ Saate bakıp "geçti" demek yetmiyor: arşivin "erken" hatalarının çoğu son
+    seferin GEÇ kalkması (gerekçe DNV.planli_seferler'de). "Geçti" için bu
+    duraktan geçişin GÖRÜLMESİ şart; görülmediyse "henüz görülmedi" — dakika
+    yok, söz yok (PROMPT Bölüm 2: emin olmadığını emin gibi söylemez)."""
+    son = DNV.son_planli_kalkis(dz, hat, yon, an)
+    if son is None or son > an:
+        return None
+    sb = DNV.sefer_bazli_varis(hat, yon, durak_kodu, son)
+    sm = None if sb else DNV.saatli_varis(hat, yon, sira, son)
+    sure = (sb or sm or [None])[0]
+    beklenen = son + timedelta(minutes=sure) if sure is not None else None
+    gecis = None
+    if beklenen is not None:
+        erken = SON_SEFER_ERKEN_DK
+        onceki = [k for k, _ in (DNV.planli_seferler(dz, hat, yon, an) or []) if k < son]
+        if onceki:
+            erken = min(erken, (son - max(onceki)).total_seconds() / 60 / 2)
+        r = DNV._kayit_db().execute(
+            "SELECT MAX(zaman) FROM gecis WHERE durak_kodu=? AND hat=? AND yon=?"
+            " AND zaman >= ? AND zaman <= ?",
+            (durak_kodu, hat, yon,
+             (beklenen - timedelta(minutes=erken)).strftime("%Y-%m-%d %H:%M:%S"),
+             min(an, beklenen + timedelta(minutes=SON_SEFER_GEC_DK)).strftime("%Y-%m-%d %H:%M:%S"))
+        ).fetchone()
+        gecis = r[0][11:16] if r and r[0] else None
+    kalkis = son.strftime("%H:%M")
+    return {"kaynak": "son_sefer", "guven": "orta",
+            # `dakika` uygulamanın modelinde zorunlu; anlamı yok, sıralama _sira'da.
+            "dakika": 0, "kalkis": kalkis, "gecis": gecis,
+            "varis": beklenen.strftime("%H:%M") if beklenen else None,
+            "not": ("bugünkü son sefer geçti · %s" % gecis) if gecis
+                   else ("son sefer %s kalkışlı · henüz görülmedi" % kalkis)}
+
+
+def durakta_ne_var(durak_kodu, an=None, surum=1):
+    """ASIL CEVAP. Üç kademe: canlı araç · gözlem · tarife (9 Ekim'den beri plan).
+
+    `surum`: uygulamanın tanıdığı satır türleri. 2 → "son_sefer" satırı da gelir
+    (eski uygulama bu türü tanımıyor — gerekçe aşağıda, SON SEFER bloğunda)."""
     an = an or datetime.now()
     dz = _dizin()
     d = dz.execute("SELECT durak_adi, ilce, enlem, boylam FROM durak WHERE durak_kodu=?",
@@ -1348,10 +1416,25 @@ def durakta_ne_var(durak_kodu, an=None):
                 "sure_dk": round(dk),
                 "not": aciklama})
 
+        # ── ⭐⭐ SON SEFER (9 Ekim · gerekçe SON_SEFER_ERKEN_DK'da) ──────────────
+        son_sefer = None if kayit["varislar"] else _son_sefer(dz, hat, yon, durak_kodu, sira, an)
+        if son_sefer is not None:
+            # Bugünün seferleri bitti: "ortalama X dk beklersin" de artık geçersiz.
+            kayit["gozlem"] = None
+            # ⚠️ Eski uygulama bu satır türünü tanımıyor: `dakika` 0 olduğu için
+            #    "şimdi" yazardı. Yalnız tanıyan sürüme gidiyor; eskisi kartı hiç
+            #    görmüyor — hayalet "~8 dk"dan iyidir.
+            if surum >= 2:
+                kayit["varislar"].append(son_sefer)
+
         # Canlı araç da yakın tarife de yoksa, GÖZLEMDEN sıradaki geçişi kestir.
         # "Bu durakta bu saatte ortalama 20 dk'da bir geçiyor, sonuncusu 12 dk önceydi"
         # → sıradaki ~8 dakika içinde. Tarifenin sustuğu yerde tek anlamlı cevap bu.
-        if not kayit["varislar"] and kayit.get("gozlem"):
+        # ⚠️⚠️ 9 Ekim: YALNIZ arşivde planı OLMAYAN hatlarda (binde 1). Plan varsa
+        #    sefer listesi biliniyor; plan susuyorsa "şu an yakında sefer yok"
+        #    demektir — kör tahmin gece %65 hayalet gösteriyordu (Bölüm 86).
+        elif (not kayit["varislar"] and kayit.get("gozlem")
+              and DNV.planli_seferler(dz, hat, yon, an) is None):
             g = kayit["gozlem"]
             son = g.get("son_gecis_dk")
             if son is not None and son < 180:
@@ -1517,7 +1600,11 @@ class Sunucu(SimpleHTTPRequestHandler):
                 if saat and ":" in saat:
                     s, d = saat.split(":")
                     an = datetime.now().replace(hour=int(s), minute=int(d), second=0, microsecond=0)
-                r = durakta_ne_var(kod, an)
+                try:
+                    surum = int(q.get("surum", ["1"])[0])
+                except ValueError:
+                    surum = 1
+                r = durakta_ne_var(kod, an, surum)
                 return self._json(r or {"hata": "durak bulunamadı"}, 200 if r else 404)
         except Exception as e:
             return self._json({"hata": str(e)[:200]}, 500)
