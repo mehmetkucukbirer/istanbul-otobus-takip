@@ -5294,8 +5294,12 @@ pano.py                adres panosu (imzalı ilan) + bildirim · --dene
 ```
 
 **Git:** yerel depo, `main` · her iş sonunda kısa notlu kayıt (84.3). Görmek için:
-VS Code → View → Source Control → Graph. **GitHub'a yükleme (19 Ekim) sürüyor:** herkese
-açık; staj projesi (`~/Desktop/iett-projesi`) için karar "kod evet, veri hayır".
+VS Code → View → Source Control → Graph.
+**GitHub (20 Ekim, herkese açık):** https://github.com/mehmetkucukbirer/istanbul-otobus-takip ·
+staj projesi https://github.com/mehmetkucukbirer/iett-arz-talep-analizi ("kod evet, veri hayır":
+`veri/`, `cikti/`, `staj-raporu/`, ekran görüntüleri dışarıda; defterler `.gitattributes` filtresiyle
+çıktısız gidiyor, yerel dosyalar değişmiyor). Gönderme: `git push` (giriş `arac/gh` ile yapıldı,
+git'in kimlik yardımcısı gh'ye bağlı — `gh auth setup-git`).
 
 **Günlük kontrol:** `durum.sh` · `izle.sh` · `veri/gozcu.log`
 
